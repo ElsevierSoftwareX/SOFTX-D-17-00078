@@ -1,0 +1,24 @@
+TITLE:: VRPViewMainMenu
+summary:: The View for the main menu of the VRP window.
+categories:: FonaDyn>Views
+related:: Classes/VRPViewMain, Classes/VRPViewMainMenuGeneral, Classes/VRPViewMainMenuInput, Classes/VRPViewMainMenuOutput
+
+DESCRIPTION::
+This class works as a container for the VRPViewMainMenu* classes, simply controlling where these views are located within the main menu for the FonaDyn project.
+
+INSTANCEMETHODS::
+
+METHOD:: fetch
+The fetch member function has one purpose, to let the VRPView*s update the VRPSettings*.
+
+ARGUMENT:: settings
+An instance of the link::Classes/VRPSettings:: to update.
+
+METHOD:: update
+The update member function has one purpose, to let the VRPView*s update their contents based on the current VRPData*.
+
+ARGUMENT:: data
+An instance of the link::Classes/VRPData::.
+
+METHOD:: close
+This function is called when the view should close.

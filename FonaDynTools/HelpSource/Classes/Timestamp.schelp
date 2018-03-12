@@ -1,0 +1,13 @@
+TITLE:: Timestamp
+summary:: Outputs the time in seconds since the UGen was initiated.
+categories:: UGens>Generators>Deterministic
+related:: Classes/SomeRelatedClass, Reference/SomeRelatedStuff, etc.
+
+DESCRIPTION::
+Outputs the time in seconds since the UGen was initiated.
+
+CLASSMETHODS::
+
+METHOD:: kr
+METHOD:: ar
+returns:: The time in seconds since the UGen was initiated.

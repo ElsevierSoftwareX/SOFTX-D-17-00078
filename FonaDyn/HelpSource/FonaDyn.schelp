@@ -1,0 +1,29 @@
+TITLE:: FonaDyn
+summary:: Run, install or uninstall the FonaDyn class library
+categories:: FonaDyn
+related:: Classes/VRPMain
+
+DESCRIPTION::
+This is a wrapper class for convenient starting and installation of FonaDyn.
+
+
+CLASSMETHODS::
+
+METHOD:: run
+This is a convenience wrapper method which does nothing but invoke VRPMain() .
+
+METHOD:: install
+This method assumes that the folders 'FonaDyn' and 'FonaDynTools' from the distribution ZIP file have been saved into the user or system Extensions folder. It performs a few checks and copies a few extra files into better locations.
+
+METHOD:: uninstall
+This method deletes without asking the entire folders 'FonaDyn' and 'FonaDynTools' in whichever Extensions folder they are.
+
+
+INSTANCEMETHODS::
+
+
+EXAMPLES::
+
+code::
+FonaDyn.run;
+::

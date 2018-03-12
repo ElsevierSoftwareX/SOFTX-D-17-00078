@@ -1,0 +1,215 @@
+TITLE:: VRPViewMainMenuOutput
+summary:: The View for the output part of the main menu of the VRP window.
+categories:: FonaDyn>Views
+related:: Classes/VRPViewMain, Classes/VRPViewMainMenu, Classes/VRPViewMainMenuGeneral, Classes/VRPViewMainMenuInput
+
+DESCRIPTION::
+In FonaDyn versions to 1.29, there are eight types of time-series outputs. The first output is simply echoing or playing back the recording. The remaining seven are output files explained below.
+The files are written at one of three rates:
+"Audio Rate" - meaning the system audio sampling rate;
+"Good Cycle Rate" - one frame from each good cycle, which means the output has a connection to the cycle rather than the EGG signal itself; and "Log Rate" - selectable as Good Cycle Rate; or one of 50, 100 or 200 Hz.
+
+For more information on how these two rates are connected, see "Connection Between Rates via Gates" below.
+
+One reason for storing the information at different rates is hard drive space. We could in theory write all the data at audio rate, but this would be inefficient since the information pertaining to cycles only changes on every new cycle. Another reason behind this choice, is that we are discarding cycles, which complicates things even more. The final reason is that we can store the the information required to connect the two rates with less bits spent on samples. In this case we use 16 bit integers to store the audio rate data and 32 bit floating point values to store data at the "Good Cycle Rate".
+
+subsection::Log
+This generates a multichannel file as an AIFF file with floats representing samples. The file contains the intermediate analysis results for audio and EGG cycle measurements. The file will have "_Log.aiff" as a postfix. The float values are in the units given, that is, they are not constrained to +/- 1.0 as would be the case for an audio file. The frames can be cycle-synchronous, containing only 'good cycles', or fixed-rate at 50, 100 or 200 Hz.
+
+With strong::n:: harmonics we have the following output.
+
+To enable logging, press the "Log off" button. You can cycle the button through the choices of frame rates.
+
+table::
+	## strong::Channel #:: || strong::Content::
+	## 0 || The time in seconds from START when the cycle data was saved [s]
+	## 1 || The estimated frequency when the EGG cycle started. [MIDI note number, with fraction]
+	## 2 || The estimated amplitude when the EGG cycle started. [decibels relative to full scale, always negative]
+	## 3 || The clarity measurement when the EGG cycle started. [a value between 0 and 1]
+	## 4 || The crest measurement when the EGG cycle started. [dB]
+	## 5 || The cluster number of this cycle. [integer 1...M]
+	## 6 || The SampEn measurement for this cycle. [a non-negative float]
+	## [7,7+strong::n::) || The amplitudes in Bels of each of the strong::n:: harmonics produced.
+	## [7+n,7+2strong::n::) || The phases in radians in the range (-pi, pi] for each of the strong::n:: harmonics produced.
+::
+
+Since this data is not isochronous, or has a low frame rate, channel 0 contains the frame times, to simplify Matlab plotting with a real time axis. The file header will contain 44100 Hz as the frame rate, which is not the case. The data from this first channel can be used as a time track also to the other 'Good Cycle Rate' file types.
+
+subsection::Recording
+This file contains the recording with the following output as a WAV file with 16 bit integers for the samples. These files have "_Voice_EGG.wav" as a postfix.
+table::
+	## strong::Channel #:: || strong::Content::
+	## 0 || The raw Audio input signal.
+	## 1 || The raw EGG input signal.
+::
+
+subsection::Cycle Detection
+This file contains the following output as a WAV file with 16 bit integers for the samples. These files have "_CycleDetection.wav" as a postfix.
+table::
+	## strong::Channel #:: || strong::Content::
+	## 0 || The conditioned EGG signal, after high- and low-pass filters.
+	## 1 || The gate signal used to separate the EGG signal into cycles. This signal is one whenever a new cycle begins.
+::
+
+subsection::Points
+With strong::n:: harmonics we have the following output as an AIFF file with floats representing samples. These files have "_Points.aiff" as a postfix.
+table::
+	## strong::Channel #:: || strong::Content::
+	## [0,strong::n::) || The delta amplitude measurements. This is simply the difference between the amplitude of the fundamental frequency and the 2nd, 3rd etc harmonic.
+	## [n,2strong::n::) || The delta phase measurements. This is simply the difference between the phase of the fundamental frequency and the 2nd, 3rd etc harmonic. Thus, its range is (-2pi, 2pi).
+::
+
+subsection::SampEn
+This file is an AIFF file with floats representing the samples. These files have "_SampEn.aiff" as a postfix.
+table::
+	## strong::Channel #:: || strong::Content::
+	## 0 || The SampEn measurement. Note that this measurement is not scaled.
+::
+
+subsection::Frequency & Amplitude
+This file does not have any on/off button connected to it, but is always written when either the SampEn measurement is written, or the points are written. The reason is that you often want these together.
+The file is an AIFF file with floats as samples. These files have "_FreqAmp.aiff" as a postfix.
+table::
+	## strong::Channel #:: || strong::Content::
+	## 0 || The estimated frequency when the EGG cycle started. Note that this measurement is not scaled.
+	## 1 || The estimated amplitude when the EGG cycle started. Note that this measurement is not scaled.
+::
+
+subsection::Connection Between Rates via Gates
+While it might seem strange to split the information into several files, it is not hard to combine the information.
+If the files are written at the same rate - there is no problem, the problems arise when the files are written in different rates.
+There is a final special output file type called "Gates". If its output is enabled in the Settings dialog, a Gates file is written when any "Good Cycle Rate" files are written. The Gates file holds the information required to connect a "Good Cycle" to its exact position on the EGG signal.
+
+It accomplishes this task via three gates. The cycle gate holds the cycle separation information. This is the exact same signal written into channel 1 of the CycleDetection file. The delayed cycle gate holds the same information as the first gate in a way. For each spike (1) in the cycle gate gate, the delayed cycle gate will also have a spike, but delayed by an unknown amount. There is one exception, which can be seen in figure 1, namely at the end of the recording. This problem arises since the DFT output didn't have enough time on the server to be calculated, hence there is no matching output for this cycle, hence it can be seen as a clipped cycle. Thus the delayed cycle gate tells us when the DFT plugin has computed the results for that cycle, or when it was forced to skip the cycle (due to its length). The filtered DFT gate tells us which cycles were removed from consideration due to other aspects, such as poor clarity. This gate will only have spikes where the delayed cycle gate has spikes. If the delayed cycle gate has a spike where the filtered DFT gate doesn't, it means that the cycle the spike represented was discarded for some reason.
+
+image::gates.png#Figure 1: The three gates. Note that we have one too short cycle, one discarded cycle and one clipped cycle.::
+
+This gate file contains the following output as a WAV file with 16 bit integers for the samples. These files have "_Gates.wav" as a postfix.
+table::
+	## strong::Channel #:: || strong::Content::
+	## 0 || The raw EGG signal
+	## 1 || The conditioned EGG signal (this is the signal used in the DFT calculations)
+	## 2 || The Cycle Gate
+	## 3 || The Delayed Cycle Gate
+	## 4 || The Filtered DFT Gate
+::
+
+subsection::MATLAB Gate Example
+code::
+% Read data
+[data, samplerate] = audioread(gates);
+[frames, channels] = size(data);
+
+rawegg = data(:, 1);
+condegg = data(:, 2);
+gc = data(:, 3);
+gdc = data(:, 4);
+gfdft = data(:, 5);
+
+% Find # of cycles
+n = 0;
+for i=1:frames
+    if gc(i) > 0
+       n = n + 1;
+    end
+end
+
+% Fill a matrix with cycle ranges
+idx = 1;
+cycles = ones(n, 2);
+first = 1;
+for i=1:frames
+    if gc(i) <= 0
+       continue;
+    end
+
+    cycles(idx, 1) = first;
+    cycles(idx, 2) = i - 1;
+    first = i;
+    idx = idx + 1;
+end
+
+% Allocate matrix for separating good and discarded cycles
+goodc = ones(n, 2);
+discardedc = ones(n, 2);
+
+idx = 1;
+goodidx = 1;
+discardedidx = 1;
+for i=1:frames
+    if gdc(i) <= 0
+        continue;
+    end
+
+    % We have a cycle
+    if gfdft(i) > 0
+        % Good cycle
+        goodc(goodidx, :) = cycles(idx, :);
+        goodidx = goodidx + 1;
+    else
+        % Discarded cycle
+        discardedc(discardedidx, :) = cycles(idx, :);
+        discardedidx = discardedidx + 1;
+    end
+
+    idx = idx + 1;
+end
+
+fprintf('We have %d good, %d discarded and %d clipped cycles!\nPlotting three random good and discarded cycles.\n', ...
+		goodidx - 1, discardedidx - 1, n - (goodidx + discardedidx - 2) );
+
+% Plot good cycles
+figure;
+idx = 1;
+a = 1;
+b = goodidx - 1;
+
+for i = 1:3
+    r = round( (b - a).*rand(1, 1) + a );
+    cycle = goodc( r, : );
+    subplot(3, 2, idx);
+    plot( rawegg( cycle(1):cycle(2) ) );
+    title( sprintf('Raw EGG: Good cycle #%d', ceil( idx / 2 ) ) );
+    idx = idx + 1;
+    subplot(3, 2, idx);
+    plot( condegg( cycle(1):cycle(2) ) );
+    title( sprintf('Conditioned EGG: Good cycle #%d', ceil( idx / 2 ) ) );
+    idx = idx + 1;
+end
+
+% Plot discarded cycles
+figure;
+idx = 1;
+a = 1;
+b = discardedidx - 1;
+
+for i = 1:3
+    r = round( (b - a).*rand(1, 1) + a );
+    cycle = discardedc( r, : );
+    subplot(3, 2, idx);
+    plot( rawegg( cycle(1):cycle(2) ) );
+    title( sprintf('Raw EGG: Discarded cycle #%d', ceil( idx / 2 ) ) );
+    idx = idx + 1;
+    subplot(3, 2, idx);
+    plot( condegg( cycle(1):cycle(2) ) );
+    title( sprintf('Conditioned EGG: Discarded cycle #%d', ceil( idx / 2 ) ) );
+    idx = idx + 1;
+end
+::
+
+INSTANCEMETHODS::
+
+METHOD:: fetch
+The fetch member function has one purpose, to let the VRPView*s update the VRPSettings*.
+
+ARGUMENT:: settings
+An instance of the link::Classes/VRPSettings:: to update.
+
+METHOD:: update
+The update member function has one purpose, to let the VRPView*s update their contents based on the current VRPData*.
+
+ARGUMENT:: data
+An instance of the link::Classes/VRPData::.
+
+METHOD:: close
+This function is called when the view should close.

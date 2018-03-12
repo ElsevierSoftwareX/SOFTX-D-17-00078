@@ -1,0 +1,157 @@
+// These class extensions to DrawGrid_ and GridLines
+// implement the plotting of a logarithmic grid when the \exp warp is specified.
+// Sten Ternström, KTH Stockholm, 2015
+// Store this file in .\Extensions\SystemOverwrites for silent acceptance by the compiler.
+
++ DrawGridX {
+	commands {
+		var p, bExp;
+		bExp = (grid.spec.warp == \exp.asWarp);   // true if exp axis requested
+		if(cacheKey != [range,bounds],{ commands = nil });
+		^commands ?? {
+			cacheKey = [range,bounds];
+			commands = [];
+			if (bExp, {	p = grid.getParamsExp(range[0],range[1],bounds.left,bounds.right)},
+				      {	p = grid.getParams(range[0],range[1],bounds.left,bounds.right)});
+			p['lines'].do { arg val;
+				// value, [color]
+				var x;
+				val = val.asArray;
+				if (bExp, {	x = val[0].explin(range[0],range[1],bounds.left,bounds.right)},
+					      { x = val[0].linlin(range[0],range[1],bounds.left,bounds.right)});
+				commands = commands.add( ['strokeColor_',val[1] ? gridColor] );
+				commands = commands.add( ['line', Point( x, bounds.top), Point(x,bounds.bottom) ] );
+				commands = commands.add( ['stroke' ] );
+			};
+			if(bounds.width >= 12	,{
+				commands = commands.add(['font_',font ] );
+				commands = commands.add(['color_',fontColor ] );
+				p['labels'].do { arg val;
+					var x;
+					// value, label, [color, font]
+					if(val[2].notNil,{
+						commands = commands.add( ['color_',val[2] ] );
+					});
+					if(val[3].notNil,{
+						commands = commands.add( ['font_',val[3] ] );
+					});
+					if (bExp, {	x = val[0].explin(range[0],range[1],bounds.left,bounds.right)},
+						      { x = val[0].linlin(range[0],range[1],bounds.left,bounds.right)});
+					commands = commands.add( ['stringAtPoint', val[1].asString, Point(x, bounds.bottom) + labelOffset ] );
+				}
+			});
+			commands
+		}
+	}
+}
+
+
++ DrawGridY {
+	commands {
+		var p, bExp;
+		bExp = false; // (grid.spec.warp == \exp.asWarp);   // true if exp axis requested - S.T.
+		if(cacheKey != [range,bounds],{ commands = nil });
+		^commands ?? {
+			commands = [];
+
+			if (bExp, {	p = grid.getParamsExp(range[0],range[1],bounds.bottom,bounds.top)},
+				      {	p = grid.getParams(range[0],range[1],bounds.bottom,bounds.top)});
+			p['lines'].do { arg val;
+				// value, [color]
+				var y;
+				val = val.asArray;
+				if (bExp, {	y = val[0].explin(range[0],range[1],bounds.bottom,bounds.top)},
+					      { y = val[0].linlin(range[0],range[1],bounds.bottom,bounds.top)} );
+				commands = commands.add( ['strokeColor_',val[1] ? gridColor] );
+				commands = commands.add( ['line', Point( bounds.left,y), Point(bounds.right,y) ] );
+				commands = commands.add( ['stroke' ] );
+			};
+			if(bounds.height >= 20	,{
+				commands = commands.add(['font_',font ] );
+				commands = commands.add(['color_',fontColor ] );
+				p['labels'].do { arg val,i;
+					var y;
+					if (bExp, {	y = val[0].explin(range[0],range[1],bounds.bottom,bounds.top)},
+						      { y = val[0].linlin(range[0],range[1],bounds.bottom,bounds.top)});
+					if(val[2].notNil,{
+						commands = commands.add( ['color_',val[2] ] );
+					});
+					if(val[3].notNil,{
+						commands = commands.add( ['font_',val[3] ] );
+					});
+					commands = commands.add( ['stringAtPoint', val[1].asString, Point(bounds.left, y) + labelOffset ] );
+				}
+			});
+			commands
+		}
+	}
+}
+
+
++ GridLines {
+	getParams { |valueMin,valueMax,pixelMin,pixelMax,numTicks|
+		var lines,p,pixRange;
+		var nfrac,d,graphmin,graphmax,range;
+		pixRange = abs(pixelMax - pixelMin);  // abs() was missing - S.T.
+		if(numTicks.isNil,{
+			numTicks = (pixRange / 40);  // was (pixRange / 64)  - S.T.
+			numTicks = numTicks.max(3).round(1);
+		});
+		# graphmin,graphmax,nfrac,d = this.ideals(valueMin,valueMax,numTicks);
+		lines = [];
+		if(d != inf,{
+			forBy(graphmin,graphmax + (0.5*d),d,{ arg tick;
+				if(tick.inclusivelyBetween(valueMin,valueMax),{
+					lines = lines.add( tick );
+				})
+			});
+		});
+		p = ();
+		p['lines'] = lines;
+		if(pixRange / numTicks > 9) {
+			p['labels'] = lines.collect({ arg val; [val, this.formatLabel(val,nfrac) ] });
+		};
+		^p
+	}
+
+	// This method added by S.T.
+	getParamsExp { |valueMin,valueMax,pixelMin,pixelMax,numTicks|
+		var lines,p,pixRange;
+		var nDecades,first,step,tick,graphmin,graphmax,range;
+		if (valueMin==0, { ^nil });
+		if (valueMax==0, { ^nil });
+		pixRange = abs(pixelMax - pixelMin);
+		nDecades = log10(valueMax/valueMin);
+		if(numTicks.isNil, {	numTicks = (pixRange / (60*nDecades))	});
+
+		// # graphmin,graphmax,nfrac,d = this.ideals(valueMin,valueMax,numTicks);
+		graphmin = valueMin;
+		graphmax = valueMax;
+		first = step = 10**(valueMin.log10.trunc);
+		lines = [];
+		tick = first;
+		while ({tick < valueMax}, {
+			if(tick.inclusivelyBetween(valueMin,valueMax),{
+				if((numTicks > 4)
+					.or((numTicks > 2.5).and(tick==this.niceNum(tick,true)))
+					.or(tick.log10.frac < 0.01),
+					{ lines = lines.add( tick )} );
+			});
+			if(tick >= (step*10), { step = (step*10) });
+			tick = (tick+step);
+		});
+		p = ();
+		p['lines'] = lines;
+		if(pixRange / numTicks > 9) {
+			p['labels'] = lines.collect({ arg val; [val, this.formatLabelExp(val,0) ] });
+		};
+		^p
+	}
+	// This method added by S.T.
+	formatLabelExp { arg val, numDecimalPlaces;
+		^if(val.log10.frac < 0.01,
+			{val.round.asString  + (spec.units?"")},
+			{if(val==this.niceNum(val,true),{val.asString}, {""} )}
+		)
+	}
+}
